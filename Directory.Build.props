@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Company>Hyundai Transys</Company>
+    <Product>Vision Inspection Orchestrator</Product>
+    <Copyright>© Hyundai Transys</Copyright>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>

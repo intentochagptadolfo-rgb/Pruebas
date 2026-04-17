@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>HyundaiTransys.VisionInspection.UI</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyundaiTransys.VisionInspection.Core\HyundaiTransys.VisionInspection.Core.csproj" />
+    <ProjectReference Include="..\HyundaiTransys.VisionInspection.Application\HyundaiTransys.VisionInspection.Application.csproj" />
+    <ProjectReference Include="..\HyundaiTransys.VisionInspection.Infrastructure\HyundaiTransys.VisionInspection.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.4" />
+  </ItemGroup>
+</Project>

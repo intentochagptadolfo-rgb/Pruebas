@@ -1,0 +1,41 @@
+# Build output
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.DS_Store
+
+# Logs and runtime data
+logs/
+*.log
+config/secure.config
+
+# NuGet
+*.nupkg
+packages/
+artifacts/
+
+# Test / coverage
+TestResults/
+*.trx
+coverage/
+*.coverage
+*.coveragexml
+
+# Rider
+.idea/
+*.sln.iml
+
+# Images / data captured on the line (local dev only)
+Images/
+data/

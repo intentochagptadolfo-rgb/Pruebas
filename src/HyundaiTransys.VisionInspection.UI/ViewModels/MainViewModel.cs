@@ -12,12 +12,14 @@ namespace HyundaiTransys.VisionInspection.UI.ViewModels;
 
 /// <summary>
 /// Operator-facing HMI. Large OK/NG indicator + image + RETEST button.
+/// Exit is gated by an admin login so operators can't close the kiosk.
 /// </summary>
 public sealed partial class MainViewModel : ViewModelBase
 {
     private readonly IInspectionOrchestrator _orchestrator;
     private readonly IImageStorage _imageStorage;
     private readonly INavigationService _navigation;
+    private readonly IKioskModeService _kiosk;
     private readonly IUiDispatcher _dispatcher;
     private readonly ILogger<MainViewModel> _logger;
 
@@ -37,12 +39,14 @@ public sealed partial class MainViewModel : ViewModelBase
         IMesClient mes,
         IKeyenceClient keyence,
         INavigationService navigation,
+        IKioskModeService kiosk,
         IUiDispatcher dispatcher,
         ILogger<MainViewModel> logger)
     {
         _orchestrator = orchestrator;
         _imageStorage = imageStorage;
         _navigation = navigation;
+        _kiosk = kiosk;
         _dispatcher = dispatcher;
         _logger = logger;
 
@@ -67,7 +71,14 @@ public sealed partial class MainViewModel : ViewModelBase
     private void OpenConfiguration() => _navigation.ShowConfiguration();
 
     [RelayCommand]
-    private void OpenLogin() => _navigation.ShowLogin();
+    private void RequestExit()
+    {
+        // Exit requires a successful admin login. Navigation returns true only
+        // when the authenticated user has the Administrator role.
+        if (!_navigation.RequestAdminAccess()) return;
+        _kiosk.IsLocked = false;
+        System.Windows.Application.Current?.Shutdown();
+    }
 
     private async Task OnInspectionCompletedAsync(InspectionRecord record)
     {

@@ -116,7 +116,22 @@ Implemented with **Stateless** (small FSM library) to make transitions and guard
 - **Image retention**: configurable `retentionDays` and `maxDiskGb`; nightly cleanup job.
 - **Observability**: Serilog + Windows Event Log; optional Seq for central aggregation.
 
-## Getting started
+## Industrial desktop hardening
+
+The UI behaves like a line-side kiosk — not a desktop app:
+
+| Concern                  | Implementation                                                                       |
+| ---                      | ---                                                                                  |
+| Single instance          | Named `Mutex` (`Local\HyundaiTransys.VisionInspection.SingleInstance`) acquired in `App.OnStartup` **before any TCP port is opened**. A second launch brings the existing window to the foreground and exits. |
+| Kiosk mode               | `IKioskModeService` sets `WindowState=Maximized`, `WindowStyle=None`, `Topmost=true`, `ShowInTaskbar=false`, blocks `Alt+F4`/`Alt+Tab`/Win keys, cancels minimize and `Closing` while locked. |
+| Password-gated exit      | "Exit (Admin)" button calls `RequestAdminAccess()` → admin login → unlock → `Shutdown`. Operators cannot close the HMI. |
+| Global crash logs        | `CrashLogger` writes to `%ProgramData%\HTVision\crash\crash-YYYYMMDD.log` via three hooks: `AppDomain.UnhandledException`, `Application.DispatcherUnhandledException`, `TaskScheduler.UnobservedTaskException`. The dispatcher hook sets `Handled=true` so the HMI survives. |
+| Structured logs          | Serilog → `C:\HTVision\logs\vision-YYYYMMDD.log` (rolling, 30-day retention) + Windows Event Log. |
+| Auto-start at logon      | `HKCU\...\Run` value registered by `deploy\install-autostart.ps1` (no elevation required). |
+
+## Building and publishing
+
+### Developer loop (engineering PC only)
 
 ```powershell
 dotnet restore
@@ -124,5 +139,32 @@ dotnet build -c Release
 dotnet test
 dotnet run --project src/HyundaiTransys.VisionInspection.UI
 ```
+
+### Production build — single-file self-contained .exe
+
+The Lenovo ThinkCentre does **not** need the .NET SDK or runtime. One command:
+
+```cmd
+deploy\publish.cmd
+```
+
+or explicitly:
+
+```
+dotnet publish src/HyundaiTransys.VisionInspection.UI/HyundaiTransys.VisionInspection.UI.csproj ^
+    -c Release -r win-x64 --self-contained true ^
+    /p:PublishSingleFile=true ^
+    /p:PublishReadyToRun=true ^
+    /p:IncludeNativeLibrariesForSelfExtract=true ^
+    /p:IncludeAllContentForSelfExtract=true ^
+    /p:EnableCompressionInSingleFile=true ^
+    /p:DebugType=embedded
+```
+
+Output: `publish\win-x64\HTVision.exe` (~80–130 MB, includes the .NET 8 runtime)
+plus `appsettings.json`. Copy both to `C:\HTVision\` on the line PC.
+
+See [`deploy/README.md`](deploy/README.md) for full installation, auto-start and
+update procedures.
 
 Target framework: **net8.0-windows** (UI), **net8.0** (libraries).

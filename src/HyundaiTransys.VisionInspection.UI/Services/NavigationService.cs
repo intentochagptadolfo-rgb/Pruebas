@@ -9,6 +9,9 @@ public interface INavigationService
 {
     void ShowConfiguration();
     void ShowLogin();
+
+    /// <summary>Shows the login dialog and returns true iff the user authenticated as Administrator.</summary>
+    bool RequestAdminAccess();
 }
 
 public sealed class NavigationService : INavigationService
@@ -19,16 +22,12 @@ public sealed class NavigationService : INavigationService
 
     public void ShowConfiguration()
     {
-        var login = _sp.GetRequiredService<LoginViewModel>();
-        var loginWindow = new LoginView { DataContext = login };
-        if (loginWindow.ShowDialog() == true &&
-            login.AuthenticatedUser?.Role == UserRole.Administrator)
-        {
-            var vm = _sp.GetRequiredService<ConfigurationViewModel>();
-            var window = new ConfigurationView { DataContext = vm };
-            _ = vm.LoadCommand.ExecuteAsync(null);
-            window.ShowDialog();
-        }
+        if (!RequestAdminAccess()) return;
+
+        var vm = _sp.GetRequiredService<ConfigurationViewModel>();
+        var window = new ConfigurationView { DataContext = vm };
+        _ = vm.LoadCommand.ExecuteAsync(null);
+        window.ShowDialog();
     }
 
     public void ShowLogin()
@@ -36,5 +35,13 @@ public sealed class NavigationService : INavigationService
         var vm = _sp.GetRequiredService<LoginViewModel>();
         var window = new LoginView { DataContext = vm };
         window.ShowDialog();
+    }
+
+    public bool RequestAdminAccess()
+    {
+        var login = _sp.GetRequiredService<LoginViewModel>();
+        var window = new LoginView { DataContext = login };
+        return window.ShowDialog() == true &&
+               login.AuthenticatedUser?.Role == UserRole.Administrator;
     }
 }

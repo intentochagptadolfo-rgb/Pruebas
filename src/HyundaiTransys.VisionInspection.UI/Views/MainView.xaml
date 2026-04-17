@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:HyundaiTransys.VisionInspection.UI.Converters"
         Title="Hyundai Transys — Vision Inspection"
-        WindowStartupLocation="CenterScreen"
-        WindowState="Maximized"
         Background="#1E1E1E"
         Foreground="White">
+    <!-- Window state, topmost, no resize, taskbar hiding are applied at runtime
+         by IKioskModeService so the same XAML is reusable in dev mode. -->
     <Window.Resources>
         <conv:ResultToColorConverter x:Key="ResultToColor"/>
         <conv:ResultToTextConverter x:Key="ResultToText"/>
@@ -75,8 +75,10 @@
         <!-- footer -->
         <Border Grid.Row="2" Background="#2D2D30" Padding="16,8">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Login" Command="{Binding OpenLoginCommand}" Margin="0,0,8,0" Padding="16,8"/>
-                <Button Content="Configuration" Command="{Binding OpenConfigurationCommand}" Padding="16,8"/>
+                <Button Content="Configuration" Command="{Binding OpenConfigurationCommand}"
+                        Padding="16,8" Margin="0,0,8,0"/>
+                <Button Content="Exit (Admin)" Command="{Binding RequestExitCommand}"
+                        Padding="16,8"/>
             </StackPanel>
         </Border>
     </Grid>

@@ -77,7 +77,7 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Configuration" Command="{Binding OpenConfigurationCommand}"
                         Padding="16,8" Margin="0,0,8,0"/>
-                <Button Content="Exit (Admin)" Command="{Binding RequestExitCommand}"
+                <Button Content="{Binding ExitButtonText}" Command="{Binding RequestExitCommand}"
                         Padding="16,8"/>
             </StackPanel>
         </Border>

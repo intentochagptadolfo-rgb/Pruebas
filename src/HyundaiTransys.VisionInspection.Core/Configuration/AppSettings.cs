@@ -4,6 +4,13 @@ public sealed class AppSettings
 {
     public const string SectionName = "App";
 
+    /// <summary>
+    /// When TRUE the HMI runs in Developer Mode (normal resizable window, standard
+    /// close button, no keyboard lockdown) so it can be tested on a developer
+    /// laptop. In production (Lenovo ThinkCentre line-side PC) this MUST be false.
+    /// </summary>
+    public bool IsDeveloperMode { get; set; } = false;
+
     public MesOptions Mes { get; set; } = new();
     public KeyenceOptions Keyence { get; set; } = new();
     public StorageOptions Storage { get; set; } = new();

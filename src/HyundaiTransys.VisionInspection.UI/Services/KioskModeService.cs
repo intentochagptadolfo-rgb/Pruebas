@@ -1,31 +1,74 @@
 using System.Windows;
 using System.Windows.Input;
+using HyundaiTransys.VisionInspection.Core.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace HyundaiTransys.VisionInspection.UI.Services;
 
 public interface IKioskModeService
 {
-    /// <summary>True when the operator has NOT authenticated to exit.</summary>
+    /// <summary>
+    /// Mirror of <see cref="AppSettings.IsDeveloperMode"/>, cached at construction.
+    /// </summary>
+    bool IsDeveloperMode { get; }
+
+    /// <summary>
+    /// True while the operator has NOT authenticated to exit. Kiosk mode starts
+    /// locked; Developer mode starts unlocked (the X button just works).
+    /// </summary>
     bool IsLocked { get; set; }
 
     void Apply(Window window);
 }
 
 /// <summary>
-/// Turns a WPF <see cref="Window"/> into a line-side operator HMI:
-///  - starts maximized + no resize
-///  - always on top
-///  - taskbar icon hidden (so the operator can't ALT-TAB out to Explorer)
-///  - Alt+F4 / system menu close require admin password
-///  - minimize requests are cancelled while locked
-/// Exit is coordinated with <see cref="IsLocked"/>: a successful admin login
-/// sets it to false before calling <see cref="Window.Close"/>.
+/// Two behaviours driven by <c>App:IsDeveloperMode</c> in appsettings.json:
+///
+///  • <b>Developer Mode (true)</b> — regular Windows chrome, maximized, the X
+///    button closes, Alt+F4 / Alt+Tab / Win key all work. For laptop testing.
+///
+///  • <b>Production Kiosk Mode (false)</b> — full-screen borderless, Topmost,
+///    taskbar hidden, minimize/close cancelled, Alt+F4 / Alt+Tab / Win keys
+///    suppressed. The only exit is the "Exit (Admin)" button with credentials.
 /// </summary>
 public sealed class KioskModeService : IKioskModeService
 {
-    public bool IsLocked { get; set; } = true;
+    public bool IsDeveloperMode { get; }
+    public bool IsLocked { get; set; }
+
+    public KioskModeService(IOptionsMonitor<AppSettings> options)
+    {
+        IsDeveloperMode = options.CurrentValue.IsDeveloperMode;
+        // Kiosk starts locked; the developer laptop starts unlocked.
+        IsLocked = !IsDeveloperMode;
+    }
 
     public void Apply(Window window)
+    {
+        if (IsDeveloperMode)
+            ApplyDeveloperMode(window);
+        else
+            ApplyProductionKioskMode(window);
+    }
+
+    // ---------- Developer Mode (laptop) ----------
+
+    private static void ApplyDeveloperMode(Window window)
+    {
+        window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        window.WindowState = WindowState.Maximized;
+        window.WindowStyle = WindowStyle.SingleBorderWindow; // title bar + X
+        window.ResizeMode = ResizeMode.CanResize;
+        window.Topmost = false;
+        window.ShowInTaskbar = true;
+        window.Title += "  [DEVELOPER MODE]";
+        // No Closing / PreviewKeyDown / StateChanged hooks are attached, so
+        // Alt+F4, Alt+Tab, the Windows key and the X button behave normally.
+    }
+
+    // ---------- Production Kiosk Mode (Lenovo ThinkCentre) ----------
+
+    private void ApplyProductionKioskMode(Window window)
     {
         window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         window.WindowState = WindowState.Maximized;
@@ -45,7 +88,6 @@ public sealed class KioskModeService : IKioskModeService
             if (IsLocked) e.Cancel = true;
         };
 
-        // Block Alt+F4 while locked.
         window.PreviewKeyDown += (_, e) =>
         {
             if (!IsLocked) return;

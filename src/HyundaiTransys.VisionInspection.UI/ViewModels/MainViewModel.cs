@@ -12,7 +12,8 @@ namespace HyundaiTransys.VisionInspection.UI.ViewModels;
 
 /// <summary>
 /// Operator-facing HMI. Large OK/NG indicator + image + RETEST button.
-/// Exit is gated by an admin login so operators can't close the kiosk.
+/// The exit command is gated by the kiosk service: in production (kiosk)
+/// it requires an administrator login; in Developer Mode it just shuts down.
 /// </summary>
 public sealed partial class MainViewModel : ViewModelBase
 {
@@ -60,6 +61,12 @@ public sealed partial class MainViewModel : ViewModelBase
     public bool IsRetestEnabled => State == SystemState.NgAlert;
     partial void OnStateChanged(SystemState value) => OnPropertyChanged(nameof(IsRetestEnabled));
 
+    /// <summary>Shown in the footer so the operator sees "Exit (Admin)" on the line
+    /// and just "Exit" on a developer laptop.</summary>
+    public string ExitButtonText => _kiosk.IsDeveloperMode ? "Exit" : "Exit (Admin)";
+
+    public bool IsDeveloperMode => _kiosk.IsDeveloperMode;
+
     [RelayCommand]
     private async Task RetestAsync()
     {
@@ -73,8 +80,15 @@ public sealed partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void RequestExit()
     {
-        // Exit requires a successful admin login. Navigation returns true only
-        // when the authenticated user has the Administrator role.
+        // Developer Mode: close cleanly without the admin dialog.
+        if (_kiosk.IsDeveloperMode)
+        {
+            _kiosk.IsLocked = false;
+            System.Windows.Application.Current?.Shutdown();
+            return;
+        }
+
+        // Production kiosk: only an authenticated Administrator can unlock.
         if (!_navigation.RequestAdminAccess()) return;
         _kiosk.IsLocked = false;
         System.Windows.Application.Current?.Shutdown();

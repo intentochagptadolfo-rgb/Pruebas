@@ -129,42 +129,142 @@ The UI behaves like a line-side kiosk — not a desktop app:
 | Structured logs          | Serilog → `C:\HTVision\logs\vision-YYYYMMDD.log` (rolling, 30-day retention) + Windows Event Log. |
 | Auto-start at logon      | `HKCU\...\Run` value registered by `deploy\install-autostart.ps1` (no elevation required). |
 
-## Building and publishing
+## Running the application — step by step
 
-### Developer loop (engineering PC only)
+The application has **two ways to run**, controlled by the `"IsDeveloperMode"`
+flag in `appsettings.json`:
+
+| Mode               | When                         | How the HMI behaves                                      |
+| ---                | ---                          | ---                                                      |
+| **Developer Mode** | Your laptop, debugging       | Maximized with title bar + X; Alt+F4/Alt+Tab/Win all work; Exit button closes without password |
+| **Production Kiosk** | Lenovo ThinkCentre on the line | Borderless, Topmost, taskbar hidden; keyboard shortcuts suppressed; Exit requires admin login |
+
+---
+
+### Prerequisites (once per machine)
+
+1. **Install the .NET 8 SDK** on the engineering PC:
+   - Download: <https://dotnet.microsoft.com/download/dotnet/8.0> → *SDK 8.0.x · Windows x64*.
+   - Verify:
+     ```powershell
+     dotnet --version
+     # must print 8.0.x
+     ```
+2. **(Optional) Install an IDE** for a nicer debugging experience:
+   - Visual Studio 2022 (17.8+) with the *".NET desktop development"* workload, or
+   - JetBrains Rider 2024.x, or
+   - VS Code with the *C# Dev Kit* extension.
+3. **Clone the repository**:
+   ```powershell
+   git clone <repo-url> HyundaiTransys.VisionInspection
+   cd HyundaiTransys.VisionInspection
+   ```
+4. **Restore NuGet packages** (first time only; `build` and `run` will do it automatically afterwards):
+   ```powershell
+   dotnet restore
+   ```
+
+---
+
+### Option A — Run on your laptop (Developer Mode)
+
+Use this while developing / testing. The HMI behaves like a normal window.
+
+1. Open `src/HyundaiTransys.VisionInspection.UI/appsettings.json` and set:
+   ```json
+   "App": {
+     "IsDeveloperMode": true,
+     ...
+   }
+   ```
+2. From the repo root, launch the app:
+   ```powershell
+   dotnet run --project src/HyundaiTransys.VisionInspection.UI
+   ```
+3. The window opens maximized with the title `Hyundai Transys — Vision Inspection  [DEVELOPER MODE]`. Close it with **the X button** or **Alt+F4** — no password needed.
+
+> The MES and camera will log connection errors until you provide real endpoints
+> or a simulator — this is expected on a laptop.
+
+#### Running from Visual Studio / Rider
+
+1. Open `HyundaiTransys.VisionInspection.sln`.
+2. In Solution Explorer, right-click **HyundaiTransys.VisionInspection.UI → Set as Startup Project**.
+3. Make sure `appsettings.json` has `"IsDeveloperMode": true`.
+4. Press **F5** (debug) or **Ctrl+F5** (no debug).
+
+#### Running the unit tests
 
 ```powershell
-dotnet restore
-dotnet build -c Release
 dotnet test
-dotnet run --project src/HyundaiTransys.VisionInspection.UI
 ```
 
-### Production build — single-file self-contained .exe
+Runs every test project under `tests/` and prints a pass/fail summary.
 
-The Lenovo ThinkCentre does **not** need the .NET SDK or runtime. One command:
+---
 
-```cmd
-deploy\publish.cmd
-```
+### Option B — Build the single-file `.exe` (for the Lenovo)
 
-or explicitly:
+Use this when you're ready to ship to the line. The output is a single
+self-contained executable — the target PC does **not** need .NET installed.
 
-```
-dotnet publish src/HyundaiTransys.VisionInspection.UI/HyundaiTransys.VisionInspection.UI.csproj ^
-    -c Release -r win-x64 --self-contained true ^
-    /p:PublishSingleFile=true ^
-    /p:PublishReadyToRun=true ^
-    /p:IncludeNativeLibrariesForSelfExtract=true ^
-    /p:IncludeAllContentForSelfExtract=true ^
-    /p:EnableCompressionInSingleFile=true ^
-    /p:DebugType=embedded
-```
+1. Make sure `appsettings.json` has `"IsDeveloperMode": false`.
+2. From the repo root, run:
+   ```cmd
+   deploy\publish.cmd
+   ```
+   Equivalent one-liner:
+   ```powershell
+   dotnet publish src/HyundaiTransys.VisionInspection.UI/HyundaiTransys.VisionInspection.UI.csproj `
+       -c Release -r win-x64 --self-contained true `
+       /p:PublishSingleFile=true `
+       /p:PublishReadyToRun=true `
+       /p:IncludeNativeLibrariesForSelfExtract=true `
+       /p:IncludeAllContentForSelfExtract=true `
+       /p:EnableCompressionInSingleFile=true `
+       /p:DebugType=embedded
+   ```
+3. Output appears in `publish\win-x64\`:
+   - `HTVision.exe` (~80–130 MB, includes the .NET 8 runtime)
+   - `appsettings.json`
 
-Output: `publish\win-x64\HTVision.exe` (~80–130 MB, includes the .NET 8 runtime)
-plus `appsettings.json`. Copy both to `C:\HTVision\` on the line PC.
+---
 
-See [`deploy/README.md`](deploy/README.md) for full installation, auto-start and
-update procedures.
+### Option C — Deploy and run on the Lenovo ThinkCentre
+
+On the line-side PC (no SDK required):
+
+1. Copy the two files from `publish\win-x64\` to `C:\HTVision\`:
+   - `HTVision.exe`
+   - `appsettings.json`
+2. Edit `C:\HTVision\appsettings.json` with the real station values:
+   - `App.Mes.IpAddress` / `Port` — the MES endpoint.
+   - `App.Keyence.IpAddress` / `Port` — the IV4-500CA camera.
+   - `App.Storage.OkImagesPath` / `NgImagesPath`.
+   - Keep `"IsDeveloperMode": false`.
+3. Double-click `HTVision.exe` (or use the desktop shortcut). The HMI starts
+   in full-screen kiosk mode.
+4. To auto-start at Windows logon, run once as the operator user:
+   ```powershell
+   pwsh C:\HTVision\deploy\install-autostart.ps1 -ExePath "C:\HTVision\HTVision.exe"
+   ```
+5. To exit the kiosk, click **Exit (Admin)** and authenticate with an
+   Administrator account.
+
+Full deployment and update procedures (auto-start alternatives, troubleshooting,
+log locations) are in [`deploy/README.md`](deploy/README.md).
+
+---
+
+### Quick reference
+
+| Task                              | Command                                                                          |
+| ---                               | ---                                                                              |
+| Restore packages                  | `dotnet restore`                                                                 |
+| Build (Release)                   | `dotnet build -c Release`                                                        |
+| Run tests                         | `dotnet test`                                                                    |
+| Run on laptop (dev mode)          | `dotnet run --project src/HyundaiTransys.VisionInspection.UI`                    |
+| Publish single-file `.exe`        | `deploy\publish.cmd`                                                             |
+| Register auto-start on Lenovo     | `pwsh deploy\install-autostart.ps1 -ExePath "C:\HTVision\HTVision.exe"`          |
 
 Target framework: **net8.0-windows** (UI), **net8.0** (libraries).

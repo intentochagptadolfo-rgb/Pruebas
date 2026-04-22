@@ -17,11 +17,10 @@ public sealed partial class LoginViewModel : ViewModelBase
 
     public LoginViewModel(IUserService users) => _users = users;
 
-    [RelayCommand]
-    private async Task LoginAsync()
+    public async Task<bool> LoginAsync(string user, string pass)
     {
         ErrorMessage = null;
-        AuthenticatedUser = await _users.AuthenticateAsync(UserName, Password);
-        if (AuthenticatedUser is null) ErrorMessage = "Invalid credentials.";
+        AuthenticatedUser = await _users.AuthenticateAsync(user, pass);
+        return AuthenticatedUser is not null;
     }
 }

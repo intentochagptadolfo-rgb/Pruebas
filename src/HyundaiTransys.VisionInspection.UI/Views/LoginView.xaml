@@ -2,17 +2,15 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Administrator login"
-        Width="360" Height="240"
+        SizeToContent="WidthAndHeight"
+        MinWidth="360" MinHeight="280"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize">
     <StackPanel Margin="24" VerticalAlignment="Center">
         <Label Content="User"/>
-        <TextBox Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}"/>
-        <Label Content="Password" Margin="0,12,0,0"/>
-        <PasswordBox x:Name="PwdBox" PasswordChanged="Pwd_Changed"/>
+        <TextBox x:Name="txtUsername" Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}"/>          <Label Content="Password" Margin="0,12,0,0"/>
+        <PasswordBox x:Name="txtPassword" PasswordChanged="Pwd_Changed"/>
         <TextBlock Text="{Binding ErrorMessage}" Foreground="Red" Margin="0,8,0,0"/>
-        <Button Content="Login" Command="{Binding LoginCommand}"
-                HorizontalAlignment="Right" Margin="0,16,0,0" Padding="24,6"
-                Click="LoginButton_Click"/>
+        <Button Content="Login" Click="LoginButton_Click" HorizontalAlignment="Right" Margin="0,16,0,0" Padding="24,6"/>
     </StackPanel>
 </Window>

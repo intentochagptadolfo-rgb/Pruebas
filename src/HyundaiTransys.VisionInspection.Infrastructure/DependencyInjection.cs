@@ -1,3 +1,4 @@
+using HyundaiTransys.VisionInspection.Application.Services;
 using HyundaiTransys.VisionInspection.Core.Abstractions;
 using HyundaiTransys.VisionInspection.Core.Configuration;
 using HyundaiTransys.VisionInspection.Infrastructure.Configuration;
@@ -48,6 +49,7 @@ public static class DependencyInjection
 
         services.AddScoped<IInspectionRepository, InspectionRepository>();
         services.AddScoped<IJobMappingRepository, JobMappingRepository>();
+        services.AddScoped<IUserStore, UserRepository>();
 
         return services;
     }

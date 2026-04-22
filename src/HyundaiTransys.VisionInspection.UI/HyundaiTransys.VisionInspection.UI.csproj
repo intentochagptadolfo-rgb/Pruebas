@@ -6,7 +6,7 @@
     <AssemblyName>HTVision</AssemblyName>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!--<ApplicationIcon>Assets\app.ico</ApplicationIcon>-->
 
     <!-- ===== Single-file, self-contained publishing ===== -->
     <!-- Target is win-x64 (Lenovo ThinkCentre). Self-contained means the

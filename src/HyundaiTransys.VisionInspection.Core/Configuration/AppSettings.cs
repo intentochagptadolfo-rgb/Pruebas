@@ -1,3 +1,5 @@
+using HyundaiTransys.VisionInspection.Core.Domain.Enums;
+
 namespace HyundaiTransys.VisionInspection.Core.Configuration;
 
 public sealed class AppSettings
@@ -38,6 +40,8 @@ public sealed class KeyenceOptions
     public int Port { get; set; } = 8500;
     public int CommandTimeoutMs { get; set; } = 3_000;
     public int ResultTimeoutMs { get; set; } = 5_000;
+    public int ReconnectInitialDelayMs { get; set; } = 1_000;
+    public int ReconnectMaxDelayMs { get; set; } = 30_000;
 }
 
 public sealed class StorageOptions

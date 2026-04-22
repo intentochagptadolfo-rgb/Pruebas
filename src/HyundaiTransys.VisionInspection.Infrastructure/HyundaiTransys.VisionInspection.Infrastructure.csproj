@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HyundaiTransys.VisionInspection.Core\HyundaiTransys.VisionInspection.Core.csproj" />
+    <ProjectReference Include="..\HyundaiTransys.VisionInspection.Application\HyundaiTransys.VisionInspection.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

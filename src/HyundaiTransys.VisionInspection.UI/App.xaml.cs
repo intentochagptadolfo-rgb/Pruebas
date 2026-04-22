@@ -1,16 +1,23 @@
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Threading;
 using HyundaiTransys.VisionInspection.Application;
 using HyundaiTransys.VisionInspection.Core.Abstractions;
+using HyundaiTransys.VisionInspection.Core.Configuration;
+using HyundaiTransys.VisionInspection.Core.Domain.Enums;
 using HyundaiTransys.VisionInspection.Infrastructure;
+using HyundaiTransys.VisionInspection.Infrastructure.Persistence;
 using HyundaiTransys.VisionInspection.UI.Services;
 using HyundaiTransys.VisionInspection.UI.ViewModels;
 using HyundaiTransys.VisionInspection.UI.Views;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+
+
 
 namespace HyundaiTransys.VisionInspection.UI;
 
@@ -49,23 +56,36 @@ public partial class App : System.Windows.Application
         {
             _host = BuildHost();
             await _host.StartAsync();
+            await InitializeDatabaseAsync();
 
-            // 3) Start adapters in dependency order.
-            var mes = _host.Services.GetRequiredService<IMesClient>();
-            var keyence = _host.Services.GetRequiredService<IKeyenceClient>();
-            var orchestrator = _host.Services.GetRequiredService<IInspectionOrchestrator>();
-
-            await mes.StartAsync();
-            await keyence.StartAsync();
-            await orchestrator.StartAsync();
-
-            // 4) Show the operator HMI in kiosk mode.
+            // 3) Show the operator HMI in kiosk mode FIRST (non-blocking UI).
             var kiosk = _host.Services.GetRequiredService<IKioskModeService>();
             var main = _host.Services.GetRequiredService<MainView>();
             main.DataContext = _host.Services.GetRequiredService<MainViewModel>();
             kiosk.Apply(main);
             MainWindow = main;
             main.Show();
+
+            // 4) Start adapters asynchronously in background (fire-and-forget).
+            // Connections attempt in parallel; failures are logged but don't crash.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var mes = _host.Services.GetRequiredService<IMesClient>();
+                    var keyence = _host.Services.GetRequiredService<IKeyenceClient>();
+                    var orchestrator = _host.Services.GetRequiredService<IInspectionOrchestrator>();
+
+                    await mes.StartAsync();
+                    await keyence.StartAsync();
+                    await orchestrator.StartAsync();
+                }
+                catch (Exception ex)
+                {
+                    // Silent failure — watchdog handles reconnections.
+                    CrashLogger.Log("BackgroundStart", ex);
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -103,71 +123,69 @@ public partial class App : System.Windows.Application
         }
         finally
         {
-            Log.CloseAndFlush();
             _instanceGuard.Dispose();
-            base.OnExit(e);
         }
     }
 
-    private static IHost BuildHost() =>
-        Host.CreateDefaultBuilder()
-            .ConfigureAppConfiguration((_, cfg) =>
-            {
-                var baseDir = AppContext.BaseDirectory;
-                cfg.SetBasePath(baseDir);
-                cfg.AddJsonFile(Path.Combine(baseDir, "appsettings.json"),
-                                optional: false, reloadOnChange: true);
-            })
-            .UseSerilog((ctx, _, lc) => lc
-                .ReadFrom.Configuration(ctx.Configuration)
-                .Enrich.FromLogContext())
-            .ConfigureServices((ctx, services) =>
-            {
-                services.AddInspectionInfrastructure(ctx.Configuration);
-                services.AddInspectionApplication();
-
-                services.AddSingleton<INavigationService, NavigationService>();
-                services.AddSingleton<IDialogService, DialogService>();
-                services.AddSingleton<IUiDispatcher, WpfDispatcher>();
-                services.AddSingleton<IKioskModeService, KioskModeService>();
-
-                services.AddSingleton<MainViewModel>();
-                services.AddSingleton<ConfigurationViewModel>();
-                services.AddSingleton<LoginViewModel>();
-
-                services.AddSingleton<MainView>();
-            })
+    private IHost BuildHost()
+    {
+        var config = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .Build();
 
-    // ---------- global exception hooks ----------
-
-    private void OnDispatcherUnhandled(object sender, DispatcherUnhandledExceptionEventArgs e)
-    {
-        CrashLogger.Log("Dispatcher", e.Exception);
-        TryLogStructured("Dispatcher", e.Exception);
-        // Swallow to keep the HMI alive; operator keeps running, engineers see the log.
-        e.Handled = true;
+        return Host.CreateDefaultBuilder()
+            .ConfigureServices((context, services) =>
+            {
+                services.AddInspectionApplication();
+                services.AddInspectionInfrastructure(config);
+                // UI services registration
+                services.AddSingleton<IKioskModeService, KioskModeService>();
+                services.AddSingleton<INavigationService, NavigationService>();
+                services.AddSingleton<IUiDispatcher, WpfDispatcher>();
+                services.AddSingleton<IDialogService, DialogService>();
+                services.AddTransient<MainView>();
+                services.AddTransient<MainViewModel>();
+                services.AddTransient<ConfigurationView>();
+                services.AddTransient<ConfigurationViewModel>();
+                services.AddTransient<LoginView>();
+                services.AddTransient<LoginViewModel>();
+                services.Configure<AppSettings>(config.GetSection(AppSettings.SectionName));
+            })
+            .UseSerilog((context, config) => config.ReadFrom.Configuration(context.Configuration))
+            .Build();
     }
 
-    private void OnAppDomainUnhandled(object sender, UnhandledExceptionEventArgs e)
+    private async Task InitializeDatabaseAsync(CancellationToken cancellationToken = default)
     {
-        if (e.ExceptionObject is Exception ex)
+        if (_host is null)
+            throw new InvalidOperationException("Host is not initialized.");
+
+        using var scope = _host.Services.CreateScope();
+        var provider = scope.ServiceProvider;
+        var dbContext = provider.GetRequiredService<InspectionDbContext>();
+        await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+
+        var userService = provider.GetRequiredService<IUserService>();
+        var users = await userService.ListAsync(cancellationToken);
+        if (!users.Any())
         {
-            CrashLogger.Log($"AppDomain (terminating={e.IsTerminating})", ex);
-            TryLogStructured("AppDomain", ex);
+            await userService.CreateAsync("admin", "admin", UserRole.Administrator, cancellationToken);
         }
     }
+
+    private void OnAppDomainUnhandled(object sender, UnhandledExceptionEventArgs e) =>
+        CrashLogger.Log("AppDomain", e.ExceptionObject as Exception ?? new Exception("Unknown"));
 
     private void OnUnobservedTask(object? sender, UnobservedTaskExceptionEventArgs e)
     {
         CrashLogger.Log("TaskScheduler", e.Exception);
-        TryLogStructured("TaskScheduler", e.Exception);
         e.SetObserved();
     }
 
-    private void TryLogStructured(string source, Exception ex)
+    private void OnDispatcherUnhandled(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        try { _host?.Services.GetService<Serilog.ILogger>()?.Error(ex, "Unhandled from {Source}", source); }
-        catch { /* crash logger is always-on fallback */ }
+        CrashLogger.Log("Dispatcher", e.Exception);
+        e.Handled = true;
     }
 }

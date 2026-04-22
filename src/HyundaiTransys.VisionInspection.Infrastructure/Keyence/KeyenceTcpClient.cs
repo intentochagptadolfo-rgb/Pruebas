@@ -12,6 +12,7 @@ namespace HyundaiTransys.VisionInspection.Infrastructure.Keyence;
 /// <summary>
 /// TCP client for the Keyence IV4-500CA. Commands are serialized through a semaphore;
 /// asynchronous inspection results arrive through <see cref="ResultReceived"/>.
+/// Includes automatic reconnection with exponential backoff.
 /// </summary>
 public sealed class KeyenceTcpClient : IKeyenceClient
 {
@@ -21,7 +22,7 @@ public sealed class KeyenceTcpClient : IKeyenceClient
     private TcpClient? _tcp;
     private NetworkStream? _stream;
     private CancellationTokenSource? _cts;
-    private Task? _readerLoop;
+    private Task? _runLoop;
     private readonly SemaphoreSlim _ioLock = new(1, 1);
 
     public KeyenceTcpClient(
@@ -40,16 +41,16 @@ public sealed class KeyenceTcpClient : IKeyenceClient
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        await ConnectAsync(_cts.Token);
-        _readerLoop = Task.Run(() => ReadLoopAsync(_cts.Token), _cts.Token);
+        _runLoop = Task.Run(() => RunLoopAsync(_cts.Token), _cts.Token);
+        await Task.CompletedTask; // Non-blocking start
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         if (_cts is not null) await _cts.CancelAsync();
-        if (_readerLoop is not null)
+        if (_runLoop is not null)
         {
-            try { await _readerLoop; } catch (OperationCanceledException) { }
+            try { await _runLoop; } catch (OperationCanceledException) { }
         }
         DisposeConnection();
     }
@@ -72,6 +73,35 @@ public sealed class KeyenceTcpClient : IKeyenceClient
 
     // ---------- internals ----------
 
+    private async Task RunLoopAsync(CancellationToken ct)
+    {
+        var backoff = _options.CurrentValue.Keyence.ReconnectInitialDelayMs;
+        var max = _options.CurrentValue.Keyence.ReconnectMaxDelayMs;
+
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await ConnectAsync(ct);
+                ConnectionStateChanged?.Invoke(this, new ConnectionStateChangedEventArgs(true, null));
+                backoff = _options.CurrentValue.Keyence.ReconnectInitialDelayMs;
+
+                await ReadLoopAsync(ct);
+            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Keyence link failure; reconnecting in {Delay} ms.", backoff);
+                ConnectionStateChanged?.Invoke(this, new ConnectionStateChangedEventArgs(false, ex.Message));
+                DisposeConnection();
+                try { await Task.Delay(backoff, ct); } catch (OperationCanceledException) { break; }
+                backoff = Math.Min(backoff * 2, max);
+            }
+        }
+
+        DisposeConnection();
+    }
+
     private async Task ConnectAsync(CancellationToken ct)
     {
         var opt = _options.CurrentValue.Keyence;
@@ -79,7 +109,6 @@ public sealed class KeyenceTcpClient : IKeyenceClient
         await _tcp.ConnectAsync(opt.IpAddress, opt.Port, ct);
         _stream = _tcp.GetStream();
         _logger.LogInformation("Keyence connected to {Ip}:{Port}.", opt.IpAddress, opt.Port);
-        ConnectionStateChanged?.Invoke(this, new ConnectionStateChangedEventArgs(true, null));
     }
 
     private async Task<KeyenceResponse> SendAndReadAckAsync(KeyenceCommand command, CancellationToken ct)
@@ -120,9 +149,8 @@ public sealed class KeyenceTcpClient : IKeyenceClient
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Keyence read loop error; will stop.");
-                ConnectionStateChanged?.Invoke(this, new ConnectionStateChangedEventArgs(false, ex.Message));
-                break;
+                _logger.LogError(ex, "Keyence read loop error; will reconnect.");
+                throw; // Re-throw to trigger reconnection in RunLoopAsync
             }
         }
     }

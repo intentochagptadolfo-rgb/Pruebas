@@ -22,26 +22,45 @@ public sealed class NavigationService : INavigationService
 
     public void ShowConfiguration()
     {
-        if (!RequestAdminAccess()) return;
+        try
+        {
+            if (!RequestAdminAccess())
+            {
+                System.Windows.MessageBox.Show("Admin access denied.", "Access Denied", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return;
+            }
 
-        var vm = _sp.GetRequiredService<ConfigurationViewModel>();
-        var window = new ConfigurationView { DataContext = vm };
-        _ = vm.LoadCommand.ExecuteAsync(null);
-        window.ShowDialog();
+            var vm = _sp.GetRequiredService<ConfigurationViewModel>();
+            var window = new ConfigurationView { DataContext = vm };
+            _ = vm.LoadCommand.ExecuteAsync(null);
+            window.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Error opening configuration: {ex.Message}", "Navigation Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+        }
     }
 
     public void ShowLogin()
     {
         var vm = _sp.GetRequiredService<LoginViewModel>();
-        var window = new LoginView { DataContext = vm };
+        var window = new LoginView(vm);
         window.ShowDialog();
     }
 
     public bool RequestAdminAccess()
     {
-        var login = _sp.GetRequiredService<LoginViewModel>();
-        var window = new LoginView { DataContext = login };
-        return window.ShowDialog() == true &&
-               login.AuthenticatedUser?.Role == UserRole.Administrator;
+        try
+        {
+            var login = _sp.GetRequiredService<LoginViewModel>();
+            var window = new LoginView(login);
+            return window.ShowDialog() == true &&
+                   login.AuthenticatedUser?.Role == UserRole.Administrator;
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Error during admin authentication: {ex.Message}", "Authentication Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            return false;
+        }
     }
 }

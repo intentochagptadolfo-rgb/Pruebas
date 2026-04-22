@@ -7,6 +7,7 @@ using HyundaiTransys.VisionInspection.Core.Domain.Enums;
 using HyundaiTransys.VisionInspection.UI.Services;
 using HyundaiTransys.VisionInspection.UI.ViewModels.Base;
 using Microsoft.Extensions.Logging;
+using System.IO;
 
 namespace HyundaiTransys.VisionInspection.UI.ViewModels;
 
@@ -75,7 +76,18 @@ public sealed partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void OpenConfiguration() => _navigation.ShowConfiguration();
+    private void OpenConfiguration()
+    {
+        try
+        {
+            _navigation.ShowConfiguration();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open configuration.");
+            System.Windows.MessageBox.Show($"Error opening configuration: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+        }
+    }
 
     [RelayCommand]
     private void RequestExit()

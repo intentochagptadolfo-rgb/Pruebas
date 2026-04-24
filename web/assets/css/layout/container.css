@@ -1,0 +1,10 @@
+/* ==========================================================================
+   CONTAINER - wrapper centrado con max-width y padding lateral
+   ========================================================================== */
+
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--container-pad);
+}

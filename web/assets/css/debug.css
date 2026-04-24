@@ -1,0 +1,25 @@
+/* ==========================================================================
+   DEBUG - activar añadiendo class="debug" al <body>
+   Pinta bordes y fondos para ver el layout. Quitar en producción.
+   ========================================================================== */
+
+body.debug *             { outline: 1px solid hsla(340, 90%, 50%, .15); }
+
+body.debug .container    { background: hsla(200, 90%, 50%, .04); }
+
+body.debug .grid         { background: hsla( 45, 95%, 50%, .06); }
+body.debug .grid > *     { background: hsla(120, 45%, 50%, .06); }
+
+body.debug .nav          { background: hsla(  0, 90%, 50%, .04) !important; }
+body.debug .menu         { background: hsla(270, 60%, 50%, .06) !important; }
+body.debug .menu-overlay { background: hsla(  0,  0%,  0%, .25) !important; }
+
+/* Badge fijo superior indicando modo debug */
+body.debug::before {
+  content: "DEBUG";
+  position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+  background: #ff2d55; color: #fff;
+  font: 700 11px/1 var(--font); letter-spacing: 1px;
+  padding: 4px 10px; border-radius: 0 0 6px 6px;
+  z-index: 9999; pointer-events: none;
+}

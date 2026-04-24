@@ -63,7 +63,28 @@
     }
   };
 
-  box.querySelector('#__volX').onclick = () => box.remove();
+  const seek = segs => {
+    const v = elegirVideo();
+    if (!v || !isFinite(v.duration)) return;
+    v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + segs));
+    val.textContent = (segs > 0 ? '+' : '') + segs + 's';
+    clearTimeout(box.__t);
+    box.__t = setTimeout(() => val.textContent = sli.value + '%', 700);
+  };
+
+  const onKey = e => {
+    const t = e.target;
+    const escribiendo = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (escribiendo) return;
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); e.stopPropagation(); seek(-5); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); seek(+5); }
+  };
+  window.addEventListener('keydown', onKey, true);
+
+  box.querySelector('#__volX').onclick = () => {
+    window.removeEventListener('keydown', onKey, true);
+    box.remove();
+  };
 
   let drag = false, offX = 0, offY = 0;
   box.addEventListener('mousedown', e => {

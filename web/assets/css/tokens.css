@@ -7,6 +7,9 @@
    ========================================================================== */
 
 :root{
+  /* Versión (mostrada en el badge de debug) */
+  --version: "v0.2.0";
+
   /* Colores */
   --c-bg:        #ffffff;
   --c-text:      #2f3132;

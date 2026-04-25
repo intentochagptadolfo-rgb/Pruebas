@@ -14,9 +14,9 @@ body.debug .nav          { background: hsla(  0, 90%, 50%, .04) !important; }
 body.debug .menu         { background: hsla(270, 60%, 50%, .06) !important; }
 body.debug .menu-overlay { background: hsla(  0,  0%,  0%, .25) !important; }
 
-/* Badge fijo superior indicando modo debug */
+/* Badge fijo superior: DEBUG + versión (lee --version de tokens.css) */
 body.debug::before {
-  content: "DEBUG";
+  content: "DEBUG " var(--version, "v?");
   position: fixed; top: 0; left: 50%; transform: translateX(-50%);
   background: #ff2d55; color: #fff;
   font: 700 11px/1 var(--font); letter-spacing: 1px;

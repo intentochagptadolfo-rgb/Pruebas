@@ -1,7 +1,8 @@
 /* ==========================================================================
    NAV - barra superior sticky
-   Layout mobile:  [toggle]  [logo centrado]  [whatsapp]
-   Layout desktop: [logo]    [menu horizontal]          [whatsapp]
+   Mobile  (<960px):  [hamb]  [logo centrado]  [wasa]
+   Desktop (>=960px): [logo]  [menu horizontal]  ...  [wasa]
+   El .menu vive en la columna central; en mobile sale del flujo (position:fixed).
    ========================================================================== */
 
 .nav {
@@ -39,7 +40,7 @@
 .nav-toggle.is-active span:nth-child(2) { opacity: 0; }
 .nav-toggle.is-active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); width: 20px; }
 
-/* --- Logo ----------------------------------------------------------------- */
+/* --- Logo: centrado en mobile, izquierda en desktop ----------------------- */
 .nav-logo {
   justify-self: center;
   display: inline-flex; align-items: center;
@@ -56,9 +57,9 @@
 }
 .nav-whatsapp svg { width: 22px; height: 22px; fill: currentColor; }
 
-/* --- Desktop -------------------------------------------------------------- */
-@media (min-width: 1024px) {
-  .nav-inner { grid-template-columns: auto 1fr auto; gap: var(--sp-6); }
+/* --- Desktop (>= 960px) --------------------------------------------------- */
+@media (min-width: 960px) {
   .nav-toggle { display: none; }
   .nav-logo   { justify-self: start; }
+  .nav-inner  { gap: var(--sp-6); }
 }

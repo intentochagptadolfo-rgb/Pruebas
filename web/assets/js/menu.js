@@ -15,7 +15,7 @@
 
   if (!toggle || !menu || !overlay) return;
 
-  const mqDesktop = matchMedia('(min-width: 1024px)');
+  const mqDesktop = matchMedia('(min-width: 960px)');
   const isOpen = () => menu.classList.contains('is-open');
 
   const focusables = () => menu.querySelectorAll(
